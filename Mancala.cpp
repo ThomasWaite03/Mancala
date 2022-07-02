@@ -34,4 +34,5 @@ int main() {
   }
 
   cout << board.getWinner();
+  cout << board.getFinalScore();
 }

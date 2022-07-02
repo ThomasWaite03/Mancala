@@ -81,6 +81,11 @@ class Board {
     }
   }
 
+  string getFinalScore() { 
+      return "The final score was " + to_string(_playerOnePoints) + "-" +
+           to_string(_playerTwoPoints) + "\n";
+  }
+
   bool makeMoveAtPosition(int position, string player) {
     bool isValidForPlayer1 = position < (_NUMBER_OF_CUPS / 2);
     bool isValidForPlayer2 = position >= (_NUMBER_OF_CUPS / 2);
