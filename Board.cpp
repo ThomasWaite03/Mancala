@@ -26,12 +26,12 @@ int Mancala::Board::takeAllFromPosition(int position) {
 	}
 }
 
-void Mancala::Board::addPoint(string player) {
+void Mancala::Board::addPoints(string player, int points = 1) {
 	if (player == PLAYER_1) {
-		_playerOnePoints++;
+		_playerOnePoints += points;
 	}
 	else if (player == PLAYER_2) {
-		_playerTwoPoints++;
+		_playerTwoPoints += points;
 	}
 }
 
@@ -118,13 +118,21 @@ bool Mancala::Board::makeMoveAtPosition(int position, string player) {
 				(relPos == 0 && player == PLAYER_2);
 
 			if (atGoal && stonesInHand >= 2) {
-				addPoint(player);
+				addPoints(player);
 				dropStoneAtPosition(position);
 				stonesInHand -= 2;
 			}
 			else if (atGoal) {
-				addPoint(player);
-				stonesInHand--;
+				// Last stone ends in the bank
+				addPoints(player);
+				return false;
+			}
+			else if (stonesInHand == 1 && getCountAtPosition(position) == 0 && 
+				((relPos < _NUMBER_OF_CUPS / 2 && player == PLAYER_1) || (relPos >= _NUMBER_OF_CUPS / 2 && player == PLAYER_2))) {
+				// When the last stone is in an empty cup on the players side, then store the stone and those in the opposite cup
+				int oppositePosition = _NUMBER_OF_CUPS - 1 - relPos;
+				addPoints(player, takeAllFromPosition(oppositePosition) + 1);
+				return true;
 			}
 			else {
 				dropStoneAtPosition(position);

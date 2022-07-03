@@ -9,6 +9,7 @@ using namespace std;
 int main() {
   cout << "Welcome to my mancala app!\n";
   AsciiBoard board;
+  board.draw();
 
   bool playerOneTurn = true;
   while (!board.gameOver()) {
@@ -27,10 +28,10 @@ int main() {
     cout << "\n";
 
     // Make the move for the current player
-    bool success = board.makeMoveAtPosition(position, player);
+    bool switchPlayer = board.makeMoveAtPosition(position, player);
 
     // Change whose turn it is when move was successful
-    if (success) {
+    if (switchPlayer) {
       playerOneTurn = !playerOneTurn;
     }
 

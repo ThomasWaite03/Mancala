@@ -16,7 +16,7 @@ namespace Mancala {
 
 		int takeAllFromPosition(int position);
 
-		void addPoint(std::string player);
+		void addPoints(std::string player, int points);
 
 	public:
 		std::string PLAYER_1;
