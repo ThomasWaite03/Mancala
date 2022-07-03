@@ -1,5 +1,6 @@
 #pragma once
 #include "Board.h"
+#include <map>
 
 namespace Mancala {
 	class AsciiBoard : public Board {
@@ -15,6 +16,8 @@ namespace Mancala {
 		void drawTopOfBoard(int cols);
 		void drawBottomOfBoard(int cols);
 		void drawMiddleOfBoard(int rows, int cols);
+
+		int getBoardIndexByCoords(int row, int col);
 	public:
 		AsciiBoard();
 		void draw();

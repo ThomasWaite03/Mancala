@@ -9,15 +9,6 @@ using namespace std;
 
 #pragma region Private
 
-int Mancala::Board::getCountAtPosition(int position) {
-	if (position >= 0) {
-		return _board[position % _NUMBER_OF_CUPS];
-	}
-	else {
-		return _INVALID_POSITION;
-	}
-}
-
 void Mancala::Board::dropStoneAtPosition(int position) {
 	if (position >= 0) {
 		_board[position % _NUMBER_OF_CUPS]++;
@@ -93,6 +84,23 @@ string Mancala::Board::getFinalScore() {
 		to_string(_playerTwoPoints) + "\n";
 }
 
+int Mancala::Board::getCountAtPosition(int position) {
+	if (position >= 0) {
+		return _board[position % _NUMBER_OF_CUPS];
+	}
+	else {
+		return _INVALID_POSITION;
+	}
+}
+
+int Mancala::Board::getPlayerOneScore() {
+	return _playerOnePoints;
+}
+
+int Mancala::Board::getPlayerTwoScore() {
+	return _playerTwoPoints;
+}
+
 bool Mancala::Board::makeMoveAtPosition(int position, string player) {
 	bool isValidForPlayer1 = position < (_NUMBER_OF_CUPS / 2);
 	bool isValidForPlayer2 = position >= (_NUMBER_OF_CUPS / 2);
@@ -124,10 +132,6 @@ bool Mancala::Board::makeMoveAtPosition(int position, string player) {
 			}
 
 			position++;
-		}
-
-		for (int i = 0; i < _board.size(); i++) {
-			std::cout << "Position " << i << ": " << _board[i] << "\n";
 		}
 
 		return true;

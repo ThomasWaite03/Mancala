@@ -12,8 +12,6 @@ namespace Mancala {
 		const int _STONES_PER_CUP;
 		const int _INVALID_POSITION;
 
-		int getCountAtPosition(int position);
-
 		void dropStoneAtPosition(int position);
 
 		int takeAllFromPosition(int position);
@@ -33,6 +31,12 @@ namespace Mancala {
 		std::string getWinner();
 
 		std::string getFinalScore();
+
+		int getPlayerOneScore();
+
+		int getPlayerTwoScore();
+
+		int getCountAtPosition(int position);
 
 		bool makeMoveAtPosition(int position, std::string player);
 	};
