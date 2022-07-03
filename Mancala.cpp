@@ -1,7 +1,8 @@
 #include <iostream>
 
-#include "board.h"
+#include "Board.h"
 
+using namespace Mancala;
 using namespace std;
 
 int main() {
@@ -31,6 +32,8 @@ int main() {
     if (success) {
       playerOneTurn = !playerOneTurn;
     }
+
+    // TODO: Print the current state of the game board
   }
 
   cout << board.getWinner();
