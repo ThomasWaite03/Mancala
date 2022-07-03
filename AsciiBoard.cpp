@@ -34,17 +34,17 @@ void Mancala::AsciiBoard::drawBottomOfBoard(int cols) {
 }
 
 void Mancala::AsciiBoard::drawMiddleOfBoard(int rows, int cols) {
-	int bankWidth = 10;
-	int cupWidth = 15;
+	int storeWidth = 10;
+	int pocketWidth = 15;
 
 	for (int row = 0; row < rows + 1; row++) {
 		cout << char(_verticalLine);
 		for (int col = 0; col < cols; col++) {
 			char charToPrint = char(_space);
 
-			bool inInnerBoard = col < (cols - bankWidth - 1) && col >= bankWidth;
-			bool isDividerInterval = (col - (bankWidth - 1)) % cupWidth == 0;
-			if (col == bankWidth - 1 || col == cols - bankWidth - 1 || (inInnerBoard && isDividerInterval)) {
+			bool inInnerBoard = col < (cols - storeWidth - 1) && col >= storeWidth;
+			bool isDividerInterval = (col - (storeWidth - 1)) % pocketWidth == 0;
+			if (col == storeWidth - 1 || col == cols - storeWidth - 1 || (inInnerBoard && isDividerInterval)) {
 				charToPrint = char(_verticalLine);
 			}
 			else if (row == rows / 2 && inInnerBoard) {
@@ -55,10 +55,10 @@ void Mancala::AsciiBoard::drawMiddleOfBoard(int rows, int cols) {
 				int idx = getBoardIndexByCoords(row, col);
 				cout << getCountAtPosition(idx);
 			}
-			else if (row == (rows / 2) && col == (bankWidth / 2)) {
+			else if (row == (rows / 2) && col == (storeWidth / 2)) {
 				cout << getPlayerTwoScore();
 			}
-			else if (row == (rows / 2) && col == cols - (bankWidth / 2)) {
+			else if (row == (rows / 2) && col == cols - (storeWidth / 2)) {
 				cout << getPlayerOneScore();
 			}
 			else {

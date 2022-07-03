@@ -1,44 +1,43 @@
 #include <iostream>
 
-#include "Board.h"
 #include "AsciiBoard.h"
 
 using namespace Mancala;
 using namespace std;
 
 int main() {
-  cout << "Welcome to my mancala app!\n";
-  AsciiBoard board;
-  board.draw();
+	cout << "Welcome to my mancala app!\n\n";
+	AsciiBoard board;
 
-  bool playerOneTurn = true;
-  while (!board.gameOver()) {
-    // Determine the player for this turn
-    string player;
-    if (playerOneTurn) {
-      player = board.PLAYER_1;
-    } else {
-      player = board.PLAYER_2;
-    }
+	bool playerOneTurn = true;
+	while (!board.gameOver()) {
+		// Print the current state of the game board
+		board.draw();
 
-    // Get the position the user wants to select to start their move at
-    int position;
-    cout << player << ", enter a position to make a move: ";
-    cin >> position;
-    cout << "\n";
+		// Determine the player for this turn
+		string player;
+		if (playerOneTurn) {
+			player = board.PLAYER_1;
+		}
+		else {
+			player = board.PLAYER_2;
+		}
 
-    // Make the move for the current player
-    bool switchPlayer = board.makeMoveAtPosition(position, player);
+		// Get the position the user wants to select to start their move at
+		int position;
+		cout << player << ", enter a position to make a move: ";
+		cin >> position;
+		cout << "\n";
 
-    // Change whose turn it is when move was successful
-    if (switchPlayer) {
-      playerOneTurn = !playerOneTurn;
-    }
+		// Make the move for the current player
+		bool switchPlayer = board.makeMoveAtPosition(position, player);
 
-    // Print the current state of the game board
-    board.draw();
-  }
+		// Change whose turn it is when move was successful
+		if (switchPlayer) {
+			playerOneTurn = !playerOneTurn;
+		}
+	}
 
-  cout << board.getWinner();
-  cout << board.getFinalScore();
+	board.draw();
+	cout << board.getWinner();
 }

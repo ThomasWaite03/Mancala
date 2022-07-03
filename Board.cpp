@@ -11,12 +11,12 @@ using namespace std;
 
 void Mancala::Board::dropStoneAtPosition(int position) {
 	if (position >= 0) {
-		_board[position % _NUMBER_OF_CUPS]++;
+		_board[position % _NUMBER_OF_POCKETS]++;
 	}
 }
 
 int Mancala::Board::takeAllFromPosition(int position) {
-	if (position < _NUMBER_OF_CUPS && position >= 0) {
+	if (position < _NUMBER_OF_POCKETS && position >= 0) {
 		int count = getCountAtPosition(position);
 		_board[position] = 0;
 		return count;
@@ -37,7 +37,7 @@ void Mancala::Board::addPoints(string player, int points = 1) {
 
 #pragma endregion
 
-Mancala::Board::Board() : _playerOnePoints(0), _playerTwoPoints(0), _NUMBER_OF_CUPS(12), _STONES_PER_CUP(4), _INVALID_POSITION(-1) {
+Mancala::Board::Board() : _playerOnePoints(0), _playerTwoPoints(0), _NUMBER_OF_POCKETS(12), _STONES_PER_POCKET(4), _INVALID_POSITION(-1) {
 	this->PLAYER_1 = "PLAYER 1";
 	this->PLAYER_2 = "PLAYER 2";
 	reset();
@@ -51,15 +51,35 @@ void Mancala::Board::reset() {
 	_playerOnePoints = 0;
 	_playerTwoPoints = 0;
 
-	// Initialize the board with all of the cups containing 4 stones each
-	for (int i = 0; i < _NUMBER_OF_CUPS; i++) {
-		_board.insert(pair<int, int>(i, _STONES_PER_CUP));
+	// Initialize the board with all of the pockets containing 4 stones each
+	for (int i = 0; i < _NUMBER_OF_POCKETS; i++) {
+		_board.insert(pair<int, int>(i, _STONES_PER_POCKET));
 	}
 }
 
 bool Mancala::Board::gameOver() {
-	if (_playerOnePoints + _playerTwoPoints ==
-		_STONES_PER_CUP * _NUMBER_OF_CUPS) {
+	// See if a player's side is empty
+	bool playerOneHasMove = false;
+	bool playerTwoHasMove = false;
+	for (int position = 0; position < _NUMBER_OF_POCKETS; position++) {
+		if (position < _NUMBER_OF_POCKETS / 2) {
+			playerOneHasMove = playerOneHasMove || getCountAtPosition(position);
+		}
+		else {
+			playerTwoHasMove = playerTwoHasMove || getCountAtPosition(position);
+		}
+	}
+
+	// When one side has all empty pockets, then the game is over and the other player captures the remaining stones
+	int stonesLeft = (_NUMBER_OF_POCKETS * _STONES_PER_POCKET) - (getPlayerOneScore() + getPlayerTwoScore());
+	if (!playerOneHasMove) {
+		addPoints(PLAYER_2, stonesLeft);
+		_board.clear();
+		return true;
+	}
+	else if (!playerTwoHasMove) {
+		addPoints(PLAYER_1, stonesLeft);
+		_board.clear();
 		return true;
 	}
 	else {
@@ -79,14 +99,9 @@ string Mancala::Board::getWinner() {
 	}
 }
 
-string Mancala::Board::getFinalScore() {
-	return "The final score was " + to_string(_playerOnePoints) + "-" +
-		to_string(_playerTwoPoints) + "\n";
-}
-
 int Mancala::Board::getCountAtPosition(int position) {
 	if (position >= 0) {
-		return _board[position % _NUMBER_OF_CUPS];
+		return _board[position % _NUMBER_OF_POCKETS];
 	}
 	else {
 		return _INVALID_POSITION;
@@ -102,19 +117,19 @@ int Mancala::Board::getPlayerTwoScore() {
 }
 
 bool Mancala::Board::makeMoveAtPosition(int position, string player) {
-	bool isValidForPlayer1 = position < (_NUMBER_OF_CUPS / 2);
-	bool isValidForPlayer2 = position >= (_NUMBER_OF_CUPS / 2);
+	bool isValidForPlayer1 = position < (_NUMBER_OF_POCKETS / 2);
+	bool isValidForPlayer2 = position >= (_NUMBER_OF_POCKETS / 2);
 	bool isValidForCurrentPlayer = (isValidForPlayer1 && player == PLAYER_1) ||
 		(isValidForPlayer2 && player == PLAYER_2);
 
-	if (position >= 0 && position < _NUMBER_OF_CUPS &&
+	if (position >= 0 && position < _NUMBER_OF_POCKETS &&
 		isValidForCurrentPlayer) {
 		int stonesInHand = takeAllFromPosition(position);
 		position++;
 
 		while (stonesInHand > 0) {
-			int relPos = position % _NUMBER_OF_CUPS;
-			bool atGoal = (relPos == _NUMBER_OF_CUPS / 2 && player == PLAYER_1) ||
+			int relPos = position % _NUMBER_OF_POCKETS;
+			bool atGoal = (relPos == _NUMBER_OF_POCKETS / 2 && player == PLAYER_1) ||
 				(relPos == 0 && player == PLAYER_2);
 
 			if (atGoal && stonesInHand >= 2) {
@@ -123,14 +138,14 @@ bool Mancala::Board::makeMoveAtPosition(int position, string player) {
 				stonesInHand -= 2;
 			}
 			else if (atGoal) {
-				// Last stone ends in the bank
+				// Last stone ends in the store
 				addPoints(player);
 				return false;
 			}
-			else if (stonesInHand == 1 && getCountAtPosition(position) == 0 && 
-				((relPos < _NUMBER_OF_CUPS / 2 && player == PLAYER_1) || (relPos >= _NUMBER_OF_CUPS / 2 && player == PLAYER_2))) {
+			else if (stonesInHand == 1 && getCountAtPosition(position) == 0 &&
+				((relPos < _NUMBER_OF_POCKETS / 2 && player == PLAYER_1) || (relPos >= _NUMBER_OF_POCKETS / 2 && player == PLAYER_2))) {
 				// When the last stone is in an empty cup on the players side, then store the stone and those in the opposite cup
-				int oppositePosition = _NUMBER_OF_CUPS - 1 - relPos;
+				int oppositePosition = _NUMBER_OF_POCKETS - 1 - relPos;
 				addPoints(player, takeAllFromPosition(oppositePosition) + 1);
 				return true;
 			}

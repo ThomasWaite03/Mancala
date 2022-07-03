@@ -8,8 +8,8 @@ namespace Mancala {
 		std::map<int, int> _board;
 		int _playerOnePoints;
 		int _playerTwoPoints;
-		const int _NUMBER_OF_CUPS;
-		const int _STONES_PER_CUP;
+		const int _NUMBER_OF_POCKETS;
+		const int _STONES_PER_POCKET;
 		const int _INVALID_POSITION;
 
 		void dropStoneAtPosition(int position);
@@ -29,8 +29,6 @@ namespace Mancala {
 		bool gameOver();
 
 		std::string getWinner();
-
-		std::string getFinalScore();
 
 		int getPlayerOneScore();
 
