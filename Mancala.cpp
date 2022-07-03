@@ -1,13 +1,14 @@
 #include <iostream>
 
 #include "Board.h"
+#include "AsciiBoard.h"
 
 using namespace Mancala;
 using namespace std;
 
 int main() {
   cout << "Welcome to my mancala app!\n";
-  Board board;
+  AsciiBoard board;
 
   bool playerOneTurn = true;
   while (!board.gameOver()) {
@@ -33,7 +34,8 @@ int main() {
       playerOneTurn = !playerOneTurn;
     }
 
-    // TODO: Print the current state of the game board
+    // Print the current state of the game board
+    board.draw();
   }
 
   cout << board.getWinner();
