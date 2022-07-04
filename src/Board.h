@@ -11,6 +11,7 @@ namespace Mancala {
 		std::map<int, int> _board;
 		int _playerOnePoints;
 		int _playerTwoPoints;
+		std::string _moveErrorMsg;
 		const int _INVALID_POSITION;
 
 		void dropStoneAtPosition(int position);
@@ -36,6 +37,8 @@ namespace Mancala {
 		int getPlayerTwoScore();
 
 		int getCountAtPosition(int position);
+
+		std::string getMoveErrorMessage();
 
 		bool makeMoveAtPosition(int position, std::string player);
 	};
