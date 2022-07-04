@@ -24,6 +24,7 @@ namespace Mancala {
 		void drawMiddleOfBoard();
 
 		int getBoardIndexByCoords(int row, int col);
+		void printIntValue(int val);
 
 	public:
 		AsciiBoard();
