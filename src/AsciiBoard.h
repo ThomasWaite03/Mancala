@@ -16,10 +16,12 @@ namespace Mancala {
 
 		const int _storeWidth;
 		const int _pocketWidth;
+		const int _rows;
+		const int _cols;
 
-		void drawTopOfBoard(int cols);
-		void drawBottomOfBoard(int cols);
-		void drawMiddleOfBoard(int rows, int cols);
+		void drawTopOfBoard();
+		void drawBottomOfBoard();
+		void drawMiddleOfBoard();
 
 		int getBoardIndexByCoords(int row, int col);
 
