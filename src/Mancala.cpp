@@ -23,6 +23,9 @@ int main() {
 			player = board.PLAYER_2;
 		}
 
+		// If there is a error message about the previous move it will display here or print an empty string
+		cout << board.getMoveErrorMessage();
+
 		// Get the position the user wants to select to start their move at
 		int position;
 		cout << player << ", enter the pocket number for your move: ";

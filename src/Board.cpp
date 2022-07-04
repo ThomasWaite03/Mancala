@@ -37,7 +37,7 @@ void Mancala::Board::addPoints(string player, int points = 1) {
 
 #pragma endregion
 
-Mancala::Board::Board() : _playerOnePoints(0), _playerTwoPoints(0), _NUMBER_OF_POCKETS(12), _STONES_PER_POCKET(4), _INVALID_POSITION(-1) {
+Mancala::Board::Board() : _playerOnePoints(0), _playerTwoPoints(0), _NUMBER_OF_POCKETS(12), _STONES_PER_POCKET(4), _INVALID_POSITION(-1), _moveErrorMsg("") {
 	this->PLAYER_1 = "PLAYER 1";
 	this->PLAYER_2 = "PLAYER 2";
 	reset();
@@ -116,6 +116,12 @@ int Mancala::Board::getPlayerTwoScore() {
 	return _playerTwoPoints;
 }
 
+string Mancala::Board::getMoveErrorMessage() {
+	string msg = _moveErrorMsg;
+	_moveErrorMsg = "";
+	return msg;
+}
+
 bool Mancala::Board::makeMoveAtPosition(int position, string player) {
 	bool isValidForPlayer1 = position < (_NUMBER_OF_POCKETS / 2);
 	bool isValidForPlayer2 = position >= (_NUMBER_OF_POCKETS / 2);
@@ -123,7 +129,7 @@ bool Mancala::Board::makeMoveAtPosition(int position, string player) {
 		(isValidForPlayer2 && player == PLAYER_2);
 
 	if (position >= 0 && position < _NUMBER_OF_POCKETS &&
-		isValidForCurrentPlayer) {
+		isValidForCurrentPlayer && getCountAtPosition(position) > 0) {
 		int stonesInHand = takeAllFromPosition(position);
 		position++;
 
@@ -159,26 +165,14 @@ bool Mancala::Board::makeMoveAtPosition(int position, string player) {
 
 		return true;
 	}
+	else if (getCountAtPosition(position) == 0) {
+		_moveErrorMsg = "That pocket has no stones right now, please select another pocket.\n\n";
+		return false;
+	}
 	else {
-		std::cout << "Invalid position for move. Please try again.\n\n";
-
+		_moveErrorMsg = "Invalid pocket number for move. Please try again.\n\n";
 		return false;
 	}
 }
 
 #pragma endregion
-
-// void printBoard() {
-//   const int rows = 10;
-//   const int cols = 50;
-
-//  for (int i = 0; i < rows; i++) {
-//    cout << char(179);
-//    for (int j = 0; j < cols; j++) {
-//      cout << char(196);
-//    }
-//    cout << char(179);
-//    cout << "\n";
-//  }
-//}
-
