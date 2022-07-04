@@ -17,6 +17,8 @@ void Mancala::AsciiBoard::draw() {
 }
 
 void Mancala::AsciiBoard::drawTopOfBoard() {
+	const char topIntersection = char(194);
+
 	for (int col = 0; col < _cols; col++) {
 		if ((col - (_pocketWidth + 2)) % _pocketWidth == 0 && col > _storeWidth && col < _cols - _storeWidth) {
 			cout << "#" << ((col - (_pocketWidth + 2)) / _pocketWidth) + 1;
@@ -30,28 +32,56 @@ void Mancala::AsciiBoard::drawTopOfBoard() {
 
 	cout << char(_topLeftCorner);
 	for (int col = 0; col < _cols; col++) {
-		cout << char(_horizontalLine);
+		if ((col - (_storeWidth - 1)) % _pocketWidth == 0 && col >= _storeWidth - 1 && col < _cols - _storeWidth) {
+			cout << topIntersection;
+		}
+		else {
+			cout << char(_horizontalLine);
+		}
 	}
 	cout << char(_topRightCorner) << "\n";
 }
 
 void Mancala::AsciiBoard::drawBottomOfBoard() {
+	const char bottomIntersection = char(193);
+
 	cout << char(_bottomLeftCorner);
 	for (int col = 0; col < _cols; col++) {
-		cout << char(_horizontalLine);
+		if ((col - (_storeWidth - 1)) % _pocketWidth == 0 && col >= _storeWidth - 1 && col < _cols - _storeWidth) {
+			cout << bottomIntersection;
+		}
+		else {
+			cout << char(_horizontalLine);
+		}
 	}
 	cout << char(_bottomRightCorner) << "\n\n";
 }
 
 void Mancala::AsciiBoard::drawMiddleOfBoard() {
+	const char fullIntersection = char(197);
+	const char leftIntersection = char(195);
+	const char rightIntersection = char(180);
+
 	for (int row = 0; row < _rows + 1; row++) {
-		cout << char(_verticalLine);
+		std::cout << char(_verticalLine);
 		for (int col = 0; col < _cols; col++) {
 			char charToPrint = char(_space);
 
 			bool inInnerBoard = col < (_cols - _storeWidth - 1) && col >= _storeWidth;
 			bool isDividerInterval = (col - (_storeWidth - 1)) % _pocketWidth == 0;
-			if (col == _storeWidth - 1 || col == _cols - _storeWidth - 1 || (inInnerBoard && isDividerInterval)) {
+			if (col == _storeWidth - 1 && row == _rows / 2) {
+				charToPrint = leftIntersection;
+			}
+			else if (col == _cols - _storeWidth - 1 && row == _rows / 2) {
+				charToPrint = rightIntersection;
+			}
+			else if (col == _storeWidth - 1 || col == _cols - _storeWidth - 1) {
+				charToPrint = char(_verticalLine);
+			}
+			else if (row == _rows / 2 && inInnerBoard && isDividerInterval) {
+				charToPrint = fullIntersection;
+			}
+			else if (inInnerBoard && isDividerInterval) {
 				charToPrint = char(_verticalLine);
 			}
 			else if (row == _rows / 2 && inInnerBoard) {
