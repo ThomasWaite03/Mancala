@@ -39,6 +39,9 @@ int main() {
 		if (switchPlayer) {
 			playerOneTurn = !playerOneTurn;
 		}
+
+		// Clear the screen after each turn
+		system("cls");
 	}
 
 	board.draw();
