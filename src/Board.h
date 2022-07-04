@@ -4,12 +4,13 @@
 
 namespace Mancala {
 	class Board {
+	protected:
+		const int _NUMBER_OF_POCKETS;
+		const int _STONES_PER_POCKET;
 	private:
 		std::map<int, int> _board;
 		int _playerOnePoints;
 		int _playerTwoPoints;
-		const int _NUMBER_OF_POCKETS;
-		const int _STONES_PER_POCKET;
 		const int _INVALID_POSITION;
 
 		void dropStoneAtPosition(int position);

@@ -25,9 +25,12 @@ int main() {
 
 		// Get the position the user wants to select to start their move at
 		int position;
-		cout << player << ", enter a position to make a move: ";
+		cout << player << ", enter the pocket number for your move: ";
 		cin >> position;
 		cout << "\n";
+
+		// Convert the position entered that matches ASCII board labels to the actual board position
+		position = board.labelToBoardPosition(position, player);
 
 		// Make the move for the current player
 		bool switchPlayer = board.makeMoveAtPosition(position, player);
@@ -36,6 +39,9 @@ int main() {
 		if (switchPlayer) {
 			playerOneTurn = !playerOneTurn;
 		}
+
+		// Clear the screen after each turn
+		system("cls");
 	}
 
 	board.draw();

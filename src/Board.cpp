@@ -160,7 +160,7 @@ bool Mancala::Board::makeMoveAtPosition(int position, string player) {
 		return true;
 	}
 	else {
-		std::cout << "Invalid position for move. Please try again.\n";
+		std::cout << "Invalid position for move. Please try again.\n\n";
 
 		return false;
 	}
