@@ -1,5 +1,5 @@
 # Mancala
-A simulation of the game mancala built using C++.
+A simulation of the mancala game built using C++.
 
 **Warning:** Designed for Windows, the program's behavior is unknown for other operating systems.
 
