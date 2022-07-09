@@ -5,10 +5,7 @@
 using namespace Mancala;
 using namespace std;
 
-int main() {
-	cout << "Welcome to my mancala app!\n\n";
-	AsciiBoard board;
-
+void OriginalGameLoop(AsciiBoard board) {
 	bool playerOneTurn = true;
 	while (!board.gameOver()) {
 		// Print the current state of the game board
@@ -50,3 +47,54 @@ int main() {
 	board.draw();
 	cout << board.getWinner();
 }
+
+int main() {
+	cout << "Welcome to my mancala app!" << endl << endl;
+
+	string menuError = "";
+
+	bool exit = false;
+	while (exit == false) {
+		// Print menu
+		cout << "Menu:" << endl << "------------------" << endl;
+		cout << "(1) Host Game" << endl;
+		cout << "(2) Join Game" << endl;
+		cout << "(3) Play Locally" << endl;
+		cout << "(4) Exit" << endl << endl;
+
+		// If there's a menu error, print it here
+		if (menuError != "") {
+			cout << menuError << endl << endl;
+			menuError = "";
+		}
+
+		// Get menu choice
+		int menuChoice;
+		cout << "Enter choice from menu: ";
+		cin >> menuChoice;
+		cout << endl;
+
+		AsciiBoard board;
+		system("cls");
+		switch (menuChoice) {
+			case 1:
+				break;
+			case 2:
+				break;
+			case 3:
+				OriginalGameLoop(board);
+				break;
+			case 4:
+				exit = true;
+				break;
+			default:
+				menuError = "Please enter a valid menu option.";
+				break;
+		}
+
+		// Clear screen, so menu can display again
+		system("cls");
+	}
+}
+
+
