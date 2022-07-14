@@ -1,9 +1,18 @@
-#include <iostream>
-
 #include "AsciiBoard.h"
+
+#include <iostream>
+#include <cpprest/ws_client.h>
+#include <cpprest/json.h>
+
+#include <boost/uuid/uuid.hpp>
+#include <boost/uuid/uuid_io.hpp>
+#include <boost/uuid/uuid_generators.hpp>
+#include <boost/lexical_cast.hpp>
 
 using namespace Mancala;
 using namespace std;
+using namespace web;
+using namespace web::websockets::client;
 
 void OriginalGameLoop(AsciiBoard board) {
 	bool playerOneTurn = true;
@@ -27,7 +36,7 @@ void OriginalGameLoop(AsciiBoard board) {
 		int position;
 		cout << player << ", enter the pocket number for your move: ";
 		cin >> position;
-		cout << "\n";
+		cout << endl;
 
 		// Convert the position entered that matches ASCII board labels to the actual board position
 		position = board.labelToBoardPosition(position, player);
@@ -46,6 +55,85 @@ void OriginalGameLoop(AsciiBoard board) {
 
 	board.draw();
 	cout << board.getWinner();
+}
+
+void MultiplayerGameLoop(AsciiBoard board) {}
+
+void HostGame(AsciiBoard board) {
+	// Generate a random unique game id
+	boost::uuids::random_generator gen;
+	boost::uuids::uuid gameUUID = gen();
+	const std::string gameID = boost::lexical_cast<std::string>(gameUUID);
+
+	// Create the websocket client and connect to the server
+	websocket_client client;
+	client.connect(U("ws://localhost:8080")).then([]() {
+		cout << "Connected to server." << endl;
+	}).wait();
+
+	// Get player's name
+	string playerName;
+	cout << "Enter name: ";
+	cin >> playerName;
+	cout << endl;
+
+	string jsonMessage = "{\"gameID\": \"" + gameID + "\", \"name\": \"" + playerName + "\", \"status\": \"hosting\"}";
+	websocket_outgoing_message msg;
+	msg.set_utf8_message(jsonMessage);
+	client.send(msg).then([]() {
+		cout << "Sent message." << endl;
+	}).wait();
+
+	client.close();
+}
+
+void JoinGame(AsciiBoard board) {
+	// Create the websocket client and connect to the server
+	websocket_client client;
+	client.connect(U("ws://localhost:8080")).then([]() {
+		cout << "Connected to server." << endl;
+	}).wait();
+
+	// get player's name
+	string playerName;
+	cout << "Enter name: ";
+	cin >> playerName;
+	cout << endl;
+
+	// Send request to get a list of available hosts
+	string getHostsRequest = "{\"name\": \"" + playerName + "\", \"status\": \"joining\"}";
+	websocket_outgoing_message getHostsRequestMsg;
+	getHostsRequestMsg.set_utf8_message(getHostsRequest);
+	client.send(getHostsRequestMsg).wait();
+
+	// Get the response
+	Concurrency::task<string> getHostsArray = client.receive().get().extract_string();
+	string body = getHostsArray.get();
+	json::value hosts = json::value::parse(body);
+	json::array hostsArray = hosts.as_array();
+
+	// List the available hosts
+	cout << "Live Hosts:" << endl << "----------------" << endl;
+	for (int i = 0; i < hostsArray.size(); i++) {
+		wcout << "(" << i + 1 << ") " << hostsArray.at(0).as_string() << endl;
+	}
+
+	// Get the host the user wants to connect with
+	int hostIndex = 0;
+	while (hostIndex < 1 || hostIndex > hostsArray.size()) {
+		cout << endl << "Enter number of host to connect with: ";
+		cin >> hostIndex;
+		cout << endl;
+	}
+	string hostName = utility::conversions::to_utf8string(hostsArray.at(hostIndex - 1).as_string());
+
+	// Send request to start game
+	string startGameRequest = "{\"name\": \"" + playerName + "\", \"hostName\": \"" + hostName + "\", \"status\": \"joining\"}";
+	websocket_outgoing_message startGameRequestMsg;
+	startGameRequestMsg.set_utf8_message(startGameRequest);
+	client.send(startGameRequestMsg).wait();
+
+	client.close();
 }
 
 int main() {
@@ -77,23 +165,25 @@ int main() {
 		AsciiBoard board;
 		system("cls");
 		switch (menuChoice) {
-			case 1:
-				break;
-			case 2:
-				break;
-			case 3:
-				OriginalGameLoop(board);
-				break;
-			case 4:
-				exit = true;
-				break;
-			default:
-				menuError = "Please enter a valid menu option.";
-				break;
+		case 1:
+			HostGame(board);
+			break;
+		case 2:
+			JoinGame(board);
+			break;
+		case 3:
+			OriginalGameLoop(board);
+			break;
+		case 4:
+			exit = true;
+			break;
+		default:
+			menuError = "Please enter a valid menu option.";
+			break;
 		}
 
 		// Clear screen, so menu can display again
-		system("cls");
+		//system("cls");
 	}
 }
 
