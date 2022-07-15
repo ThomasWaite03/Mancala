@@ -100,7 +100,9 @@ void MultiplayerGameLoop(AsciiBoard board, websocket_client client, string gameI
 			});
 			getMoveTask.wait();
 			string positionString = getMoveTask.get();
-			position = std::stoi(positionString);
+			json::value moveResponse = json::value::parse(positionString);
+			json::object moveJSON = moveResponse.as_object();
+			position = moveJSON.at(U("move")).as_integer();
 		}
 
 		// Make the move for the current player
@@ -109,6 +111,7 @@ void MultiplayerGameLoop(AsciiBoard board, websocket_client client, string gameI
 		// If the local player made an error free move, send a message
 		if (playerOneTurn == isPlayerOne && board.getMoveErrorMessage() == "") {
 			string playerName = isPlayerOne ? board.PLAYER_1 : board.PLAYER_2;
+			string switchPlayerString = switchPlayer ? "True" : "False";
 			string sendMoveRequest = "{\"gameID\": \"" + gameID + "\", \"name\": \"" + playerName + "\", \"move\": " + to_string(position) + ", \"status\": \"makingMove\"}";
 			websocket_outgoing_message sendMoveMsg;
 			sendMoveMsg.set_utf8_message(sendMoveRequest);
