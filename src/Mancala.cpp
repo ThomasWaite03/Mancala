@@ -57,7 +57,78 @@ void OriginalGameLoop(AsciiBoard board) {
 	cout << board.getWinner();
 }
 
-void MultiplayerGameLoop(AsciiBoard board) {}
+void MultiplayerGameLoop(AsciiBoard board, websocket_client client, string gameID, bool isPlayerOne) {
+	bool playerOneTurn = true;
+	while (!board.gameOver()) {
+		// Print the current state of the game board
+		board.draw();
+
+		// Determine the player for this turn
+		string player;
+		if (playerOneTurn) {
+			player = board.PLAYER_1;
+		}
+		else {
+			player = board.PLAYER_2;
+		}
+
+		// If there is a error message about the previous move it will display here or print an empty string
+		cout << board.getMoveErrorMessage();
+
+		// If it is the players turn, let them make a move.
+		int position;
+		if (playerOneTurn == isPlayerOne) {
+			// Get the position the user wants to select to start their move at
+			cout << player << ", enter the pocket number for your move: ";
+			cin >> position;
+			cout << endl;
+
+			// Convert the position entered that matches ASCII board labels to the actual board position
+			position = board.labelToBoardPosition(position, player);
+		}
+		else {
+			// Otherwise get the remote player's move.
+			string playerName = isPlayerOne ? board.PLAYER_1 : board.PLAYER_2;
+			cout << "Waiting for " << playerName << " to finish turn." << endl;
+			/*Concurrency::task<string> getMoveTask = client.receive().get().extract_string();
+			string body = getMoveTask.get();
+			getMoveTask.wait();
+			position = std::stoi(body);*/
+
+			Concurrency::task<string> getMoveTask = client.receive().then([](websocket_incoming_message msg) {
+				return msg.extract_string();
+			});
+			getMoveTask.wait();
+			string positionString = getMoveTask.get();
+			position = std::stoi(positionString);
+		}
+
+		// Make the move for the current player
+		bool switchPlayer = board.makeMoveAtPosition(position, player);
+
+		// If the local player made an error free move, send a message
+		if (playerOneTurn == isPlayerOne && board.getMoveErrorMessage() == "") {
+			string playerName = isPlayerOne ? board.PLAYER_1 : board.PLAYER_2;
+			string sendMoveRequest = "{\"gameID\": \"" + gameID + "\", \"name\": \"" + playerName + "\", \"move\": " + to_string(position) + ", \"status\": \"makingMove\"}";
+			websocket_outgoing_message sendMoveMsg;
+			sendMoveMsg.set_utf8_message(sendMoveRequest);
+			client.send(sendMoveMsg).wait();
+		}
+
+		// Change whose turn it is when move was successful
+		if (switchPlayer) {
+			playerOneTurn = !playerOneTurn;
+		}
+
+		// Clear the screen after each turn
+		system("cls");
+	}
+
+	board.draw();
+	cout << board.getWinner();
+
+	client.close();
+}
 
 void HostGame(AsciiBoard board) {
 	// Generate a random unique game id
@@ -77,14 +148,24 @@ void HostGame(AsciiBoard board) {
 	cin >> playerName;
 	cout << endl;
 
-	string jsonMessage = "{\"gameID\": \"" + gameID + "\", \"name\": \"" + playerName + "\", \"status\": \"hosting\"}";
-	websocket_outgoing_message msg;
-	msg.set_utf8_message(jsonMessage);
-	client.send(msg).then([]() {
-		cout << "Sent message." << endl;
-	}).wait();
+	string startGameRequest = "{\"gameID\": \"" + gameID + "\", \"name\": \"" + playerName + "\", \"status\": \"hosting\"}";
+	websocket_outgoing_message startGameRequestMsg;
+	startGameRequestMsg.set_utf8_message(startGameRequest);
+	client.send(startGameRequestMsg).wait();
 
-	client.close();
+	// Get the name of the other player once they join.
+	Concurrency::task<string> getJoiningPlayerTask = client.receive().get().extract_string();
+	string body = getJoiningPlayerTask.get();
+	json::value joiningPlayerResponse = json::value::parse(body);
+	json::object joiningPlayerJSON = joiningPlayerResponse.as_object();
+	string joiningPlayer = utility::conversions::to_utf8string(joiningPlayerJSON.at(U("joiningName")).as_string());
+
+	// Set player names
+	board.PLAYER_1 = playerName;
+	board.PLAYER_2 = joiningPlayer;
+
+	// Start game loop
+	MultiplayerGameLoop(board, client, gameID, true);
 }
 
 void JoinGame(AsciiBoard board) {
@@ -107,8 +188,8 @@ void JoinGame(AsciiBoard board) {
 	client.send(getHostsRequestMsg).wait();
 
 	// Get the response
-	Concurrency::task<string> getHostsArray = client.receive().get().extract_string();
-	string body = getHostsArray.get();
+	Concurrency::task<string> getHostsArrayTask = client.receive().get().extract_string();
+	string body = getHostsArrayTask.get();
 	json::value hosts = json::value::parse(body);
 	json::array hostsArray = hosts.as_array();
 
@@ -133,7 +214,18 @@ void JoinGame(AsciiBoard board) {
 	startGameRequestMsg.set_utf8_message(startGameRequest);
 	client.send(startGameRequestMsg).wait();
 
-	client.close();
+	Concurrency::task<string> getJoinResponseTask = client.receive().get().extract_string();
+	body = getJoinResponseTask.get();
+	json::value joinResponse = json::value::parse(body);
+	json::object joinResponseJSON = joinResponse.as_object();
+	string gameID = utility::conversions::to_utf8string(joinResponseJSON.at(U("gameID")).as_string());
+
+	// Set player names
+	board.PLAYER_1 = hostName;
+	board.PLAYER_2 = playerName;
+
+	// Start game loop
+	MultiplayerGameLoop(board, client, gameID, false);
 }
 
 int main() {
