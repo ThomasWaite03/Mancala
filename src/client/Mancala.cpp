@@ -202,7 +202,7 @@ void JoinGame(AsciiBoard board) {
 	// List the available hosts
 	cout << "Live Hosts:" << endl << "----------------" << endl;
 	for (int i = 0; i < hostsArray.size(); i++) {
-		wcout << "(" << i + 1 << ") " << hostsArray.at(0).as_string() << endl;
+		wcout << "(" << i + 1 << ") " << hostsArray.at(i).as_string() << endl;
 	}
 
 	// Get the host the user wants to connect with
