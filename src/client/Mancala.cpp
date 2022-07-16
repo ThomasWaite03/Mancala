@@ -88,21 +88,27 @@ void MultiplayerGameLoop(AsciiBoard board, websocket_client client, string gameI
 		}
 		else {
 			// Otherwise get the remote player's move.
-			string playerName = isPlayerOne ? board.PLAYER_1 : board.PLAYER_2;
-			cout << "Waiting for " << playerName << " to finish turn." << endl;
-			/*Concurrency::task<string> getMoveTask = client.receive().get().extract_string();
-			string body = getMoveTask.get();
-			getMoveTask.wait();
-			position = std::stoi(body);*/
+			cout << "Waiting for " << player << " to finish turn." << endl;
 
-			Concurrency::task<string> getMoveTask = client.receive().then([](websocket_incoming_message msg) {
-				return msg.extract_string();
-			});
-			getMoveTask.wait();
-			string positionString = getMoveTask.get();
-			json::value moveResponse = json::value::parse(positionString);
-			json::object moveJSON = moveResponse.as_object();
-			position = moveJSON.at(U("move")).as_integer();
+			while (true) {
+				// try to receive a message
+				string positionString;
+				client.receive().then([](websocket_incoming_message msg) {
+					return msg.extract_string();
+				}).then([&positionString](string body) {
+					positionString = body;
+				}).wait();
+
+				// If message is valid, assign position, otherwise the loop continues
+				try {
+					json::value moveR = json::value::parse(positionString);
+					json::value moveResponse = json::value::parse(positionString);
+					json::object moveJSON = moveResponse.as_object();
+					position = moveJSON.at(U("move")).as_integer();
+					break;
+				}
+				catch (json::json_exception ex) {}
+			}
 		}
 
 		// Make the move for the current player
@@ -110,9 +116,7 @@ void MultiplayerGameLoop(AsciiBoard board, websocket_client client, string gameI
 
 		// If the local player made an error free move, send a message
 		if (playerOneTurn == isPlayerOne && board.getMoveErrorMessage() == "") {
-			string playerName = isPlayerOne ? board.PLAYER_1 : board.PLAYER_2;
-			string switchPlayerString = switchPlayer ? "True" : "False";
-			string sendMoveRequest = "{\"gameID\": \"" + gameID + "\", \"name\": \"" + playerName + "\", \"move\": " + to_string(position) + ", \"status\": \"makingMove\"}";
+			string sendMoveRequest = "{\"gameID\": \"" + gameID + "\", \"name\": \"" + player + "\", \"move\": " + to_string(position) + ", \"status\": \"makingMove\"}";
 			websocket_outgoing_message sendMoveMsg;
 			sendMoveMsg.set_utf8_message(sendMoveRequest);
 			client.send(sendMoveMsg).wait();
@@ -162,10 +166,23 @@ void HostGame(AsciiBoard board) {
 	json::value joiningPlayerResponse = json::value::parse(body);
 	json::object joiningPlayerJSON = joiningPlayerResponse.as_object();
 	string joiningPlayer = utility::conversions::to_utf8string(joiningPlayerJSON.at(U("joiningName")).as_string());
-
+	
 	// Set player names
 	board.PLAYER_1 = playerName;
 	board.PLAYER_2 = joiningPlayer;
+
+	///////////////////////////////////////////////////////////////////////////////////////
+	//websocket_callback_client callback_client;
+	//callback_client.connect(U("ws://localhost:8080")).then([]() {
+	//	cout << "Connected to server." << endl;
+	//}).wait();
+	//
+	//callback_client.set_message_handler([](websocket_incoming_message msg) {
+	//	if (msg.extract_string().wait() == Concurrency::task_status::completed) {
+	//		return msg.extract_string();
+	//	}
+	//});
+	////////////////////////////////////////////////////////////////////////////////////////
 
 	// Start game loop
 	MultiplayerGameLoop(board, client, gameID, true);
