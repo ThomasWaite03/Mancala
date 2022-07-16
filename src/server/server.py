@@ -50,7 +50,7 @@ async def handler(websocket):
                 await host.websocket.send(json.dumps(joinedMessage))
                 await websocket.send(json.dumps(joinedMessage))
             elif jsonMessage["status"] == "joining":
-                await websocket.send(json.dumps(list(hosts.keys())))
+                await websocket.send(json.dumps({"hosts": list(hosts.keys())}))
             elif jsonMessage["status"] == "makingMove":
                 game = games[jsonMessage["gameID"]]
                 move = {

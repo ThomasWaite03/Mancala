@@ -14,6 +14,25 @@ using namespace std;
 using namespace web;
 using namespace web::websockets::client;
 
+json::object WaitForJSON(websocket_client client) {
+	while (true) {
+		// try to receive a message
+		string responseString;
+		client.receive().then([](websocket_incoming_message msg) {
+			return msg.extract_string();
+		}).then([&responseString](string body) {
+			responseString = body;
+		}).wait();
+
+		// If message is valid break loop
+		try {
+			json::value serverResponse = json::value::parse(responseString);
+			return serverResponse.as_object();
+		}
+		catch (json::json_exception ex) {}
+	}
+}
+
 void OriginalGameLoop(AsciiBoard board) {
 	bool playerOneTurn = true;
 	while (!board.gameOver()) {
@@ -33,10 +52,11 @@ void OriginalGameLoop(AsciiBoard board) {
 		cout << board.getMoveErrorMessage();
 
 		// Get the position the user wants to select to start their move at
-		int position;
+		string positionString;
 		cout << player << ", enter the pocket number for your move: ";
-		cin >> position;
+		getline(cin, positionString);
 		cout << endl;
+		int position = std::stoi(positionString);
 
 		// Convert the position entered that matches ASCII board labels to the actual board position
 		position = board.labelToBoardPosition(position, player);
@@ -57,7 +77,7 @@ void OriginalGameLoop(AsciiBoard board) {
 	cout << board.getWinner();
 }
 
-void MultiplayerGameLoop(AsciiBoard board, websocket_client client, string gameID, bool isPlayerOne) {
+void OnlineGameLoop(AsciiBoard board, websocket_client client, string gameID, bool isPlayerOne) {
 	bool playerOneTurn = true;
 	while (!board.gameOver()) {
 		// Print the current state of the game board
@@ -79,9 +99,11 @@ void MultiplayerGameLoop(AsciiBoard board, websocket_client client, string gameI
 		int position;
 		if (playerOneTurn == isPlayerOne) {
 			// Get the position the user wants to select to start their move at
+			string positionString;
 			cout << player << ", enter the pocket number for your move: ";
-			cin >> position;
+			getline(cin, positionString);
 			cout << endl;
+			position = std::stoi(positionString);
 
 			// Convert the position entered that matches ASCII board labels to the actual board position
 			position = board.labelToBoardPosition(position, player);
@@ -90,25 +112,8 @@ void MultiplayerGameLoop(AsciiBoard board, websocket_client client, string gameI
 			// Otherwise get the remote player's move.
 			cout << "Waiting for " << player << " to finish turn." << endl;
 
-			while (true) {
-				// try to receive a message
-				string positionString;
-				client.receive().then([](websocket_incoming_message msg) {
-					return msg.extract_string();
-				}).then([&positionString](string body) {
-					positionString = body;
-				}).wait();
-
-				// If message is valid, assign position, otherwise the loop continues
-				try {
-					json::value moveR = json::value::parse(positionString);
-					json::value moveResponse = json::value::parse(positionString);
-					json::object moveJSON = moveResponse.as_object();
-					position = moveJSON.at(U("move")).as_integer();
-					break;
-				}
-				catch (json::json_exception ex) {}
-			}
+			json::object moveJSON = WaitForJSON(client);
+			position = moveJSON.at(U("move")).as_integer();
 		}
 
 		// Make the move for the current player
@@ -152,8 +157,7 @@ void HostGame(AsciiBoard board) {
 	// Get player's name
 	string playerName;
 	cout << "Enter name: ";
-	cin >> playerName;
-	cout << endl;
+	getline(cin, playerName);
 
 	string startGameRequest = "{\"gameID\": \"" + gameID + "\", \"name\": \"" + playerName + "\", \"status\": \"hosting\"}";
 	websocket_outgoing_message startGameRequestMsg;
@@ -161,31 +165,15 @@ void HostGame(AsciiBoard board) {
 	client.send(startGameRequestMsg).wait();
 
 	// Get the name of the other player once they join.
-	Concurrency::task<string> getJoiningPlayerTask = client.receive().get().extract_string();
-	string body = getJoiningPlayerTask.get();
-	json::value joiningPlayerResponse = json::value::parse(body);
-	json::object joiningPlayerJSON = joiningPlayerResponse.as_object();
-	string joiningPlayer = utility::conversions::to_utf8string(joiningPlayerJSON.at(U("joiningName")).as_string());
+	json::object response = WaitForJSON(client);
+	string joiningPlayer = utility::conversions::to_utf8string(response.at(U("joiningName")).as_string());
 	
 	// Set player names
 	board.PLAYER_1 = playerName;
 	board.PLAYER_2 = joiningPlayer;
 
-	///////////////////////////////////////////////////////////////////////////////////////
-	//websocket_callback_client callback_client;
-	//callback_client.connect(U("ws://localhost:8080")).then([]() {
-	//	cout << "Connected to server." << endl;
-	//}).wait();
-	//
-	//callback_client.set_message_handler([](websocket_incoming_message msg) {
-	//	if (msg.extract_string().wait() == Concurrency::task_status::completed) {
-	//		return msg.extract_string();
-	//	}
-	//});
-	////////////////////////////////////////////////////////////////////////////////////////
-
 	// Start game loop
-	MultiplayerGameLoop(board, client, gameID, true);
+	OnlineGameLoop(board, client, gameID, true);
 }
 
 void JoinGame(AsciiBoard board) {
@@ -198,7 +186,7 @@ void JoinGame(AsciiBoard board) {
 	// get player's name
 	string playerName;
 	cout << "Enter name: ";
-	cin >> playerName;
+	getline(cin, playerName);
 	cout << endl;
 
 	// Send request to get a list of available hosts
@@ -207,11 +195,9 @@ void JoinGame(AsciiBoard board) {
 	getHostsRequestMsg.set_utf8_message(getHostsRequest);
 	client.send(getHostsRequestMsg).wait();
 
-	// Get the response
-	Concurrency::task<string> getHostsArrayTask = client.receive().get().extract_string();
-	string body = getHostsArrayTask.get();
-	json::value hosts = json::value::parse(body);
-	json::array hostsArray = hosts.as_array();
+	// Get the list of hosts in response
+	json::object hostsResponse = WaitForJSON(client);
+	json::array hostsArray = hostsResponse.at(U("hosts")).as_array();
 
 	// List the available hosts
 	cout << "Live Hosts:" << endl << "----------------" << endl;
@@ -222,9 +208,11 @@ void JoinGame(AsciiBoard board) {
 	// Get the host the user wants to connect with
 	int hostIndex = 0;
 	while (hostIndex < 1 || hostIndex > hostsArray.size()) {
+		string hostIndexString;
 		cout << endl << "Enter number of host to connect with: ";
-		cin >> hostIndex;
+		getline(cin, hostIndexString);
 		cout << endl;
+		hostIndex = std::stoi(hostIndexString);
 	}
 	string hostName = utility::conversions::to_utf8string(hostsArray.at(hostIndex - 1).as_string());
 
@@ -234,18 +222,16 @@ void JoinGame(AsciiBoard board) {
 	startGameRequestMsg.set_utf8_message(startGameRequest);
 	client.send(startGameRequestMsg).wait();
 
-	Concurrency::task<string> getJoinResponseTask = client.receive().get().extract_string();
-	body = getJoinResponseTask.get();
-	json::value joinResponse = json::value::parse(body);
-	json::object joinResponseJSON = joinResponse.as_object();
-	string gameID = utility::conversions::to_utf8string(joinResponseJSON.at(U("gameID")).as_string());
+	// Get the gameID from the response
+	json::object joinResponse = WaitForJSON(client);
+	string gameID = utility::conversions::to_utf8string(joinResponse.at(U("gameID")).as_string());
 
 	// Set player names
 	board.PLAYER_1 = hostName;
 	board.PLAYER_2 = playerName;
 
 	// Start game loop
-	MultiplayerGameLoop(board, client, gameID, false);
+	OnlineGameLoop(board, client, gameID, false);
 }
 
 int main() {
@@ -269,10 +255,11 @@ int main() {
 		}
 
 		// Get menu choice
-		int menuChoice;
+		string menuChoiceString;
 		cout << "Enter choice from menu: ";
-		cin >> menuChoice;
+		getline(cin, menuChoiceString);
 		cout << endl;
+		int menuChoice = std::stoi(menuChoiceString);
 
 		AsciiBoard board;
 		system("cls");
