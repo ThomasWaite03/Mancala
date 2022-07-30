@@ -14,7 +14,42 @@ using namespace std;
 using namespace web;
 using namespace web::websockets::client;
 
-json::object WaitForJSON(websocket_client client) {
+const utility::string_t connection_1 = U("");
+const utility::string_t connection_2 = U("");
+
+void JoinGroup(websocket_client client) {
+	// Join group
+	json::value joinGroupJSON = json::value::object();
+	joinGroupJSON[U("type")] = json::value::string(U("joinGroup"));
+	joinGroupJSON[U("group")] = json::value::string(U("group1"));
+
+	websocket_outgoing_message joinGroupMsg;
+	joinGroupMsg.set_utf8_message(utility::conversions::to_utf8string(joinGroupJSON.serialize()));
+	client.send(joinGroupMsg).wait();
+
+	bool received = false;
+	while (!received) {
+		string responseString = "";
+		try {
+			client.receive().then([](websocket_incoming_message msg) {
+				return msg.extract_string();
+			}).then([&responseString](string body) {
+				responseString = body;
+			}).wait();
+		}
+		catch (websockets::client::websocket_exception ex) {
+			std::cout << "Error message: " << ex.what() << endl;
+			std::cout << "Error code: " << ex.error_code() << endl;
+		}
+
+		if (responseString != "") {
+			std::cout << responseString << endl;
+			received = true;
+		}
+	}
+}
+
+json::object WaitForNextMove(websocket_client client, string playerToListenFor) {
 	while (true) {
 		// try to receive a message
 		string responseString;
@@ -26,8 +61,12 @@ json::object WaitForJSON(websocket_client client) {
 
 		// If message is valid break loop
 		try {
-			json::value serverResponse = json::value::parse(responseString);
-			return serverResponse.as_object();
+			json::value response = json::value::parse(responseString);
+
+			string sender = utility::conversions::to_utf8string(response.at(U("fromUserId")).as_string());
+			if (sender == playerToListenFor) {
+				return response.as_object();
+			}
 		}
 		catch (json::json_exception ex) {}
 	}
@@ -49,13 +88,13 @@ void OriginalGameLoop(AsciiBoard board) {
 		}
 
 		// If there is a error message about the previous move it will display here or print an empty string
-		cout << board.getMoveErrorMessage();
+		std::cout << board.getMoveErrorMessage();
 
 		// Get the position the user wants to select to start their move at
 		string positionString;
-		cout << player << ", enter the pocket number for your move: ";
-		getline(cin, positionString);
-		cout << endl;
+		std::cout << player << ", enter the pocket number for your move: ";
+		std::getline(cin, positionString);
+		std::cout << endl;
 		int position = std::stoi(positionString);
 
 		// Convert the position entered that matches ASCII board labels to the actual board position
@@ -70,11 +109,14 @@ void OriginalGameLoop(AsciiBoard board) {
 		}
 
 		// Clear the screen after each turn
-		system("cls");
+		std::system("cls");
 	}
 
 	board.draw();
-	cout << board.getWinner();
+	std::cout << board.getWinner();
+
+	// Press any key to continue...
+	std::system("pause");
 }
 
 void OnlineGameLoop(AsciiBoard board, websocket_client client, string gameID, bool isPlayerOne) {
@@ -93,16 +135,16 @@ void OnlineGameLoop(AsciiBoard board, websocket_client client, string gameID, bo
 		}
 
 		// If there is a error message about the previous move it will display here or print an empty string
-		cout << board.getMoveErrorMessage();
+		std::cout << board.getMoveErrorMessage();
 
 		// If it is the players turn, let them make a move.
 		int position;
 		if (playerOneTurn == isPlayerOne) {
 			// Get the position the user wants to select to start their move at
 			string positionString;
-			cout << player << ", enter the pocket number for your move: ";
-			getline(cin, positionString);
-			cout << endl;
+			std::cout << player << ", enter the pocket number for your move: ";
+			std::getline(cin, positionString);
+			std::cout << endl;
 			position = std::stoi(positionString);
 
 			// Convert the position entered that matches ASCII board labels to the actual board position
@@ -110,10 +152,10 @@ void OnlineGameLoop(AsciiBoard board, websocket_client client, string gameID, bo
 		}
 		else {
 			// Otherwise get the remote player's move.
-			cout << "Waiting for " << player << " to finish turn." << endl;
+			std::cout << "Waiting for " << player << " to finish turn." << endl;
 
-			json::object moveJSON = WaitForJSON(client);
-			position = moveJSON.at(U("move")).as_integer();
+			json::object moveJSON = WaitForNextMove(client, player);
+			position = moveJSON.at(U("data")).at(U("move")).as_integer();
 		}
 
 		// Make the move for the current player
@@ -121,9 +163,18 @@ void OnlineGameLoop(AsciiBoard board, websocket_client client, string gameID, bo
 
 		// If the local player made an error free move, send a message
 		if (playerOneTurn == isPlayerOne && board.getMoveErrorMessage() == "") {
-			string sendMoveRequest = "{\"gameID\": \"" + gameID + "\", \"name\": \"" + player + "\", \"move\": " + to_string(position) + ", \"status\": \"makingMove\"}";
+			json::value data = json::value::object();
+			data[U("move")] = json::value::number(position);
+
+			// Create json object that stores a send message request and the latest move
+			json::value sendMoveRequest = json::value::object();
+			sendMoveRequest[U("type")] = json::value::string(U("sendToGroup"));
+			sendMoveRequest[U("group")] = json::value::string(U("group1"));
+			sendMoveRequest[U("dataType")] = json::value::string(U("json"));
+			sendMoveRequest[U("data")] = data;
+
 			websocket_outgoing_message sendMoveMsg;
-			sendMoveMsg.set_utf8_message(sendMoveRequest);
+			sendMoveMsg.set_utf8_message(utility::conversions::to_utf8string(sendMoveRequest.serialize()));
 			client.send(sendMoveMsg).wait();
 		}
 
@@ -133,13 +184,16 @@ void OnlineGameLoop(AsciiBoard board, websocket_client client, string gameID, bo
 		}
 
 		// Clear the screen after each turn
-		system("cls");
+		std::system("cls");
 	}
 
 	board.draw();
-	cout << board.getWinner();
+	std::cout << board.getWinner();
 
 	client.close();
+
+	// Press any key to continue...
+	std::system("pause");
 }
 
 void HostGame(AsciiBoard board) {
@@ -149,28 +203,19 @@ void HostGame(AsciiBoard board) {
 	const std::string gameID = boost::lexical_cast<std::string>(gameUUID);
 
 	// Create the websocket client and connect to the server
-	websocket_client client;
-	client.connect(U("ws://localhost:8080")).then([]() {
-		cout << "Connected to server." << endl;
+	websocket_client_config config;
+	config.set_validate_certificates(false);
+	config.add_subprotocol(utility::conversions::to_string_t("json.webpubsub.azure.v1"));
+	websocket_client client(config);
+	client.connect(connection_1).then([]() {
+		std::cout << "Connected to server." << endl;
 	}).wait();
 
-	// Get player's name
-	string playerName;
-	cout << "Enter name: ";
-	getline(cin, playerName);
-
-	string startGameRequest = "{\"gameID\": \"" + gameID + "\", \"name\": \"" + playerName + "\", \"status\": \"hosting\"}";
-	websocket_outgoing_message startGameRequestMsg;
-	startGameRequestMsg.set_utf8_message(startGameRequest);
-	client.send(startGameRequestMsg).wait();
-
-	// Get the name of the other player once they join.
-	json::object response = WaitForJSON(client);
-	string joiningPlayer = utility::conversions::to_utf8string(response.at(U("joiningName")).as_string());
+	JoinGroup(client);
 	
 	// Set player names
-	board.PLAYER_1 = playerName;
-	board.PLAYER_2 = joiningPlayer;
+	board.PLAYER_1 = "Player 1";
+	board.PLAYER_2 = "Player 2";
 
 	// Start game loop
 	OnlineGameLoop(board, client, gameID, true);
@@ -178,91 +223,133 @@ void HostGame(AsciiBoard board) {
 
 void JoinGame(AsciiBoard board) {
 	// Create the websocket client and connect to the server
-	websocket_client client;
-	client.connect(U("ws://localhost:8080")).then([]() {
-		cout << "Connected to server." << endl;
+	websocket_client_config config;
+	config.set_validate_certificates(false);
+	config.add_subprotocol(utility::conversions::to_string_t("json.webpubsub.azure.v1"));
+	websocket_client client(config);
+	client.connect(connection_2).then([]() {
+		std::cout << "Connected to server." << endl;
 	}).wait();
 
-	// get player's name
-	string playerName;
-	cout << "Enter name: ";
-	getline(cin, playerName);
-	cout << endl;
-
-	// Send request to get a list of available hosts
-	string getHostsRequest = "{\"name\": \"" + playerName + "\", \"status\": \"joining\"}";
-	websocket_outgoing_message getHostsRequestMsg;
-	getHostsRequestMsg.set_utf8_message(getHostsRequest);
-	client.send(getHostsRequestMsg).wait();
-
-	// Get the list of hosts in response
-	json::object hostsResponse = WaitForJSON(client);
-	json::array hostsArray = hostsResponse.at(U("hosts")).as_array();
-
-	// List the available hosts
-	cout << "Live Hosts:" << endl << "----------------" << endl;
-	for (int i = 0; i < hostsArray.size(); i++) {
-		wcout << "(" << i + 1 << ") " << hostsArray.at(i).as_string() << endl;
-	}
-
-	// Get the host the user wants to connect with
-	int hostIndex = 0;
-	while (hostIndex < 1 || hostIndex > hostsArray.size()) {
-		string hostIndexString;
-		cout << endl << "Enter number of host to connect with: ";
-		getline(cin, hostIndexString);
-		cout << endl;
-		hostIndex = std::stoi(hostIndexString);
-	}
-	string hostName = utility::conversions::to_utf8string(hostsArray.at(hostIndex - 1).as_string());
-
-	// Send request to start game
-	string startGameRequest = "{\"name\": \"" + playerName + "\", \"hostName\": \"" + hostName + "\", \"status\": \"joining\"}";
-	websocket_outgoing_message startGameRequestMsg;
-	startGameRequestMsg.set_utf8_message(startGameRequest);
-	client.send(startGameRequestMsg).wait();
-
-	// Get the gameID from the response
-	json::object joinResponse = WaitForJSON(client);
-	string gameID = utility::conversions::to_utf8string(joinResponse.at(U("gameID")).as_string());
+	JoinGroup(client);
 
 	// Set player names
-	board.PLAYER_1 = hostName;
-	board.PLAYER_2 = playerName;
+	board.PLAYER_1 = "Player 1";
+	board.PLAYER_2 = "Player 2";
 
 	// Start game loop
-	OnlineGameLoop(board, client, gameID, false);
+	OnlineGameLoop(board, client, "", false);
+}
+
+void testRecv() {
+	websocket_client_config config;
+	config.set_validate_certificates(false);
+	config.add_subprotocol(utility::conversions::to_string_t("json.webpubsub.azure.v1"));
+	websocket_client client(config);
+	client.connect(connection_1).then([]() {
+		std::cout << "Connected to server." << endl;
+	}).wait();
+
+	JoinGroup(client);
+
+	while (true) {
+		string responseString = "";
+		try {
+			client.receive().then([](websocket_incoming_message msg) {
+				return msg.extract_string();
+			}).then([&responseString](string body) {
+				responseString = body;
+			}).wait();
+		}
+		catch (websockets::client::websocket_exception ex) {
+			std::cout << "Error message: " << ex.what() << endl;
+			std::cout << "Error code: " << ex.error_code() << endl;
+		}
+
+		if (responseString != "") {
+			std::cout << responseString << endl;
+		}
+	}
+}
+
+void testSend() {
+	websocket_client_config config;
+	config.set_validate_certificates(false);
+	config.add_subprotocol(utility::conversions::to_string_t("json.webpubsub.azure.v1"));
+	websocket_client client(config);
+	client.connect(connection_2).then([]() {
+		std::cout << "Connected to server." << endl;
+	}).wait();
+	
+	JoinGroup(client);
+
+	while (true) {
+		string user_msg;
+		std::cout << "Enter message to send: ";
+		std::getline(cin, user_msg);
+		std::cout << endl;
+
+		try {
+			json::value data = json::value::object();
+			data[U("msg")] = json::value::string(utility::conversions::to_string_t(user_msg));
+			
+			json::value sendMessageRequest = json::value::object();
+			sendMessageRequest[U("type")] = json::value::string(U("sendToGroup"));
+			sendMessageRequest[U("group")] = json::value::string(U("group1"));
+			sendMessageRequest[U("dataType")] = json::value::string(U("json"));
+			sendMessageRequest[U("data")] = data;
+			
+			websocket_outgoing_message msg;
+			msg.set_utf8_message(utility::conversions::to_utf8string(sendMessageRequest.serialize()));
+			client.send(msg).wait();
+			std::cout << "Message sent." << endl;
+			
+			string responseString;
+			client.receive().then([](websocket_incoming_message msg) {
+				return msg.extract_string();
+			}).then([&responseString](string body) {
+				responseString = body;
+			}).wait();
+			std::cout << responseString << endl;
+		}
+		catch (websockets::client::websocket_exception ex) {
+			std::cout << "Error message: " << ex.what() << endl;
+			std::cout << "Error code: " << ex.error_code() << endl;
+		}
+	}
 }
 
 int main() {
-	cout << "Welcome to my mancala app!" << endl << endl;
+	std::cout << "Welcome to my mancala app!" << endl << endl;
 
 	string menuError = "";
 
 	bool exit = false;
 	while (exit == false) {
 		// Print menu
-		cout << "Menu:" << endl << "------------------" << endl;
-		cout << "(1) Host Game" << endl;
-		cout << "(2) Join Game" << endl;
-		cout << "(3) Play Locally" << endl;
-		cout << "(4) Exit" << endl << endl;
+		std::cout << "Menu:" << endl << "------------------" << endl;
+		std::cout << "(1) Host Game" << endl;
+		std::cout << "(2) Join Game" << endl;
+		std::cout << "(3) Play Locally" << endl;
+		std::cout << "(4) Exit" << endl << endl;
+		std::cout << "(5) Test Receiving" << endl;
+		std::cout << "(6) Test Sending" << endl << endl;
 
 		// If there's a menu error, print it here
 		if (menuError != "") {
-			cout << menuError << endl << endl;
+			std::cout << menuError << endl << endl;
 			menuError = "";
 		}
 
 		// Get menu choice
 		string menuChoiceString;
-		cout << "Enter choice from menu: ";
-		getline(cin, menuChoiceString);
-		cout << endl;
+		std::cout << "Enter choice from menu: ";
+		std::getline(cin, menuChoiceString);
+		std::cout << endl;
 		int menuChoice = std::stoi(menuChoiceString);
 
 		AsciiBoard board;
-		system("cls");
+		std::system("cls");
 		switch (menuChoice) {
 		case 1:
 			HostGame(board);
@@ -276,13 +363,19 @@ int main() {
 		case 4:
 			exit = true;
 			break;
+		case 5:
+			testRecv();
+			break;
+		case 6:
+			testSend();
+			break;
 		default:
 			menuError = "Please enter a valid menu option.";
 			break;
 		}
 
 		// Clear screen, so menu can display again
-		//system("cls");
+		std::system("cls");
 	}
 }
 
