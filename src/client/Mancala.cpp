@@ -1,5 +1,7 @@
 #include "AsciiBoard.h"
 
+#pragma comment(lib, "bcrypt.lib")
+
 #include <iostream>
 #include <cpprest/ws_client.h>
 #include <cpprest/json.h>
@@ -14,8 +16,9 @@ using namespace std;
 using namespace web;
 using namespace web::websockets::client;
 
-const utility::string_t connection_1 = U("");
-const utility::string_t connection_2 = U("");
+// Azure WebPubSub user access urls
+const utility::string_t CONNECTION_1 = U("");
+const utility::string_t CONNECTION_2 = U("");
 
 void JoinGroup(websocket_client client) {
 	// Join group
@@ -33,9 +36,9 @@ void JoinGroup(websocket_client client) {
 		try {
 			client.receive().then([](websocket_incoming_message msg) {
 				return msg.extract_string();
-			}).then([&responseString](string body) {
-				responseString = body;
-			}).wait();
+				}).then([&responseString](string body) {
+					responseString = body;
+					}).wait();
 		}
 		catch (websockets::client::websocket_exception ex) {
 			std::cout << "Error message: " << ex.what() << endl;
@@ -55,20 +58,20 @@ json::object WaitForNextMove(websocket_client client, string playerToListenFor) 
 		string responseString;
 		client.receive().then([](websocket_incoming_message msg) {
 			return msg.extract_string();
-		}).then([&responseString](string body) {
-			responseString = body;
-		}).wait();
+			}).then([&responseString](string body) {
+				responseString = body;
+				}).wait();
 
-		// If message is valid break loop
-		try {
-			json::value response = json::value::parse(responseString);
+				// If message is valid break loop
+				try {
+					json::value response = json::value::parse(responseString);
 
-			string sender = utility::conversions::to_utf8string(response.at(U("fromUserId")).as_string());
-			if (sender == playerToListenFor) {
-				return response.as_object();
-			}
-		}
-		catch (json::json_exception ex) {}
+					string sender = utility::conversions::to_utf8string(response.at(U("fromUserId")).as_string());
+					if (sender == playerToListenFor) {
+						return response.as_object();
+					}
+				}
+				catch (json::json_exception ex) {}
 	}
 }
 
@@ -91,11 +94,24 @@ void OriginalGameLoop(AsciiBoard board) {
 		std::cout << board.getMoveErrorMessage();
 
 		// Get the position the user wants to select to start their move at
-		string positionString;
-		std::cout << player << ", enter the pocket number for your move: ";
-		std::getline(cin, positionString);
-		std::cout << endl;
-		int position = std::stoi(positionString);
+		bool userHasMadeMove = false;
+		int position;
+		while (!userHasMadeMove) {
+			string positionString;
+			std::cout << player << ", enter the pocket number for your move: ";
+			std::getline(cin, positionString);
+			std::cout << endl;
+
+			try {
+				position = std::stoi(positionString);
+				userHasMadeMove = true;
+			}
+			catch (std::invalid_argument const& ex) {
+				std::system("cls");
+				board.draw();
+				std::cout << "Invalid input, please type in a number that represents the board location you want to select." << endl << endl;
+			}
+		}
 
 		// Convert the position entered that matches ASCII board labels to the actual board position
 		position = board.labelToBoardPosition(position, player);
@@ -141,11 +157,23 @@ void OnlineGameLoop(AsciiBoard board, websocket_client client, string gameID, bo
 		int position;
 		if (playerOneTurn == isPlayerOne) {
 			// Get the position the user wants to select to start their move at
-			string positionString;
-			std::cout << player << ", enter the pocket number for your move: ";
-			std::getline(cin, positionString);
-			std::cout << endl;
-			position = std::stoi(positionString);
+			bool userHasMadeMove = false;
+			while (!userHasMadeMove) {
+				string positionString;
+				std::cout << player << ", enter the pocket number for your move: ";
+				std::getline(cin, positionString);
+				std::cout << endl;
+
+				try {
+					position = std::stoi(positionString);
+					userHasMadeMove = true;
+				}
+				catch (std::invalid_argument const& ex) {
+					std::system("cls");
+					board.draw();
+					std::cout << "Invalid input, please type in a number that represents the board location you want to select." << endl << endl;
+				}
+			}
 
 			// Convert the position entered that matches ASCII board labels to the actual board position
 			position = board.labelToBoardPosition(position, player);
@@ -207,18 +235,18 @@ void HostGame(AsciiBoard board) {
 	config.set_validate_certificates(false);
 	config.add_subprotocol(utility::conversions::to_string_t("json.webpubsub.azure.v1"));
 	websocket_client client(config);
-	client.connect(connection_1).then([]() {
+	client.connect(CONNECTION_1).then([]() {
 		std::cout << "Connected to server." << endl;
-	}).wait();
+		}).wait();
 
-	JoinGroup(client);
-	
-	// Set player names
-	board.PLAYER_1 = "Player 1";
-	board.PLAYER_2 = "Player 2";
+		JoinGroup(client);
 
-	// Start game loop
-	OnlineGameLoop(board, client, gameID, true);
+		// Set player names
+		board.PLAYER_1 = "Player 1";
+		board.PLAYER_2 = "Player 2";
+
+		// Start game loop
+		OnlineGameLoop(board, client, gameID, true);
 }
 
 void JoinGame(AsciiBoard board) {
@@ -227,18 +255,18 @@ void JoinGame(AsciiBoard board) {
 	config.set_validate_certificates(false);
 	config.add_subprotocol(utility::conversions::to_string_t("json.webpubsub.azure.v1"));
 	websocket_client client(config);
-	client.connect(connection_2).then([]() {
+	client.connect(CONNECTION_2).then([]() {
 		std::cout << "Connected to server." << endl;
-	}).wait();
+		}).wait();
 
-	JoinGroup(client);
+		JoinGroup(client);
 
-	// Set player names
-	board.PLAYER_1 = "Player 1";
-	board.PLAYER_2 = "Player 2";
+		// Set player names
+		board.PLAYER_1 = "Player 1";
+		board.PLAYER_2 = "Player 2";
 
-	// Start game loop
-	OnlineGameLoop(board, client, "", false);
+		// Start game loop
+		OnlineGameLoop(board, client, "", false);
 }
 
 void testRecv() {
@@ -246,30 +274,30 @@ void testRecv() {
 	config.set_validate_certificates(false);
 	config.add_subprotocol(utility::conversions::to_string_t("json.webpubsub.azure.v1"));
 	websocket_client client(config);
-	client.connect(connection_1).then([]() {
+	client.connect(CONNECTION_1).then([]() {
 		std::cout << "Connected to server." << endl;
-	}).wait();
+		}).wait();
 
-	JoinGroup(client);
+		JoinGroup(client);
 
-	while (true) {
-		string responseString = "";
-		try {
-			client.receive().then([](websocket_incoming_message msg) {
-				return msg.extract_string();
-			}).then([&responseString](string body) {
-				responseString = body;
-			}).wait();
-		}
-		catch (websockets::client::websocket_exception ex) {
-			std::cout << "Error message: " << ex.what() << endl;
-			std::cout << "Error code: " << ex.error_code() << endl;
-		}
+		while (true) {
+			string responseString = "";
+			try {
+				client.receive().then([](websocket_incoming_message msg) {
+					return msg.extract_string();
+					}).then([&responseString](string body) {
+						responseString = body;
+						}).wait();
+			}
+			catch (websockets::client::websocket_exception ex) {
+				std::cout << "Error message: " << ex.what() << endl;
+				std::cout << "Error code: " << ex.error_code() << endl;
+			}
 
-		if (responseString != "") {
-			std::cout << responseString << endl;
+			if (responseString != "") {
+				std::cout << responseString << endl;
+			}
 		}
-	}
 }
 
 void testSend() {
@@ -277,46 +305,46 @@ void testSend() {
 	config.set_validate_certificates(false);
 	config.add_subprotocol(utility::conversions::to_string_t("json.webpubsub.azure.v1"));
 	websocket_client client(config);
-	client.connect(connection_2).then([]() {
+	client.connect(CONNECTION_2).then([]() {
 		std::cout << "Connected to server." << endl;
-	}).wait();
-	
-	JoinGroup(client);
+		}).wait();
 
-	while (true) {
-		string user_msg;
-		std::cout << "Enter message to send: ";
-		std::getline(cin, user_msg);
-		std::cout << endl;
+		JoinGroup(client);
 
-		try {
-			json::value data = json::value::object();
-			data[U("msg")] = json::value::string(utility::conversions::to_string_t(user_msg));
-			
-			json::value sendMessageRequest = json::value::object();
-			sendMessageRequest[U("type")] = json::value::string(U("sendToGroup"));
-			sendMessageRequest[U("group")] = json::value::string(U("group1"));
-			sendMessageRequest[U("dataType")] = json::value::string(U("json"));
-			sendMessageRequest[U("data")] = data;
-			
-			websocket_outgoing_message msg;
-			msg.set_utf8_message(utility::conversions::to_utf8string(sendMessageRequest.serialize()));
-			client.send(msg).wait();
-			std::cout << "Message sent." << endl;
-			
-			string responseString;
-			client.receive().then([](websocket_incoming_message msg) {
-				return msg.extract_string();
-			}).then([&responseString](string body) {
-				responseString = body;
-			}).wait();
-			std::cout << responseString << endl;
+		while (true) {
+			string user_msg;
+			std::cout << "Enter message to send: ";
+			std::getline(cin, user_msg);
+			std::cout << endl;
+
+			try {
+				json::value data = json::value::object();
+				data[U("msg")] = json::value::string(utility::conversions::to_string_t(user_msg));
+
+				json::value sendMessageRequest = json::value::object();
+				sendMessageRequest[U("type")] = json::value::string(U("sendToGroup"));
+				sendMessageRequest[U("group")] = json::value::string(U("group1"));
+				sendMessageRequest[U("dataType")] = json::value::string(U("json"));
+				sendMessageRequest[U("data")] = data;
+
+				websocket_outgoing_message msg;
+				msg.set_utf8_message(utility::conversions::to_utf8string(sendMessageRequest.serialize()));
+				client.send(msg).wait();
+				std::cout << "Message sent." << endl;
+
+				string responseString;
+				client.receive().then([](websocket_incoming_message msg) {
+					return msg.extract_string();
+					}).then([&responseString](string body) {
+						responseString = body;
+						}).wait();
+						std::cout << responseString << endl;
+			}
+			catch (websockets::client::websocket_exception ex) {
+				std::cout << "Error message: " << ex.what() << endl;
+				std::cout << "Error code: " << ex.error_code() << endl;
+			}
 		}
-		catch (websockets::client::websocket_exception ex) {
-			std::cout << "Error message: " << ex.what() << endl;
-			std::cout << "Error code: " << ex.error_code() << endl;
-		}
-	}
 }
 
 int main() {
